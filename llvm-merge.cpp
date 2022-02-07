@@ -45,9 +45,8 @@ int main(int argc, char **argv) {
 
   std::vector<GlobalValue *> FuncsToMove;
   for (StringRef FuncName : FuncsToMerge) {
-    if (auto *F = DstM->getFunction(FuncName))
-      F->deleteBody();
     if (auto *F = SrcM->getFunction(FuncName)) {
+      F->setName((FuncName + ".merge.src.tmp").str());
       FuncsToMove.push_back(F);
     }
   }
@@ -57,6 +56,16 @@ int main(int argc, char **argv) {
       std::move(SrcM), FuncsToMove, [](GlobalValue &, IRMover::ValueAdder) {},
       true /*is performing import*/)) {
     report_fatal_error("Function Import: link error: " + toString(std::move(Err)));
+  }
+
+  for (StringRef FuncName : FuncsToMerge) {
+    if (auto *SrcF = DstM->getFunction((FuncName + ".merge.src.tmp").str())) {
+      if (auto *DstF = DstM->getFunction(FuncName)) {
+        DstF->replaceAllUsesWith(SrcF);
+        DstF->eraseFromParent();
+      }
+      SrcF->setName(FuncName);
+    }
   }
 
   std::error_code EC;
