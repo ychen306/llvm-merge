@@ -24,6 +24,17 @@ static cl::list<std::string>
     FuncsToMerge("funcs", cl::desc("list of funcs to merge from source to dst"),
                  cl::CommaSeparated);
 
+static void replaceFunctionBody(Function *DstF, Function *SrcF) {
+  auto &DstBlocks = DstF->getBasicBlockList();
+  auto &SrcBlocks = SrcF->getBasicBlockList();
+  DstBlocks.clear();
+  DstBlocks.splice(DstBlocks.end(), SrcBlocks);
+  ValueToValueMapTy VMap;
+  for (auto Pair : zip(SrcF->args(), DstF->args()))
+    VMap[&std::get<0>(Pair)] = &std::get<1>(Pair);
+  RemapFunction(*DstF, VMap);
+}
+
 int main(int argc, char **argv) {
   cl::ParseCommandLineOptions(argc, argv,
                               "Merge a list of functions from SRC to DST\n");
@@ -46,8 +57,10 @@ int main(int argc, char **argv) {
   std::vector<GlobalValue *> FuncsToMove;
   for (StringRef FuncName : FuncsToMerge) {
     if (auto *F = SrcM->getFunction(FuncName)) {
-      F->setName((FuncName + ".merge.src.tmp").str());
-      FuncsToMove.push_back(F);
+      ValueToValueMapTy VMap;
+      auto *FClone = CloneFunction(F, VMap);
+      FClone->setName((FuncName + ".merge.src.tmp").str());
+      FuncsToMove.push_back(FClone);
     }
   }
 
