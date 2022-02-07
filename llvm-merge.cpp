@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  std::unique_ptr<Module> SrcM = parseIRFile(DstFileName, Err, Context);
+  std::unique_ptr<Module> SrcM = parseIRFile(SrcFileName, Err, Context);
   if (!SrcM) {
     Err.print(argv[0], errs());
     return 1;
@@ -47,8 +47,9 @@ int main(int argc, char **argv) {
   for (StringRef FuncName : FuncsToMerge) {
     if (auto *F = DstM->getFunction(FuncName))
       F->deleteBody();
-    if (auto *F = SrcM->getFunction(FuncName))
+    if (auto *F = SrcM->getFunction(FuncName)) {
       FuncsToMove.push_back(F);
+    }
   }
 
   IRMover Mover(*DstM);
